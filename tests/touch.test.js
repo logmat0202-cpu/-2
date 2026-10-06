@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {stickVector} from '../src/touch.js';
+import {Player} from '../src/player.js';
+import {Puzzle} from '../src/model.js';
+import {levels} from '../src/levels.js';
+const make=()=>new Player(new Puzzle(levels[0]),{liftMeshes:[]});
+test('joystick dead zone, clamping and gradual speed',()=>{assert.deepEqual(stickVector(3,2,50),{x:0,z:0});const half=stickVector(0,-28,50);assert.ok(half.z<-.3&&half.z>-.6);const edge=stickVector(80,80,50);assert.ok(Math.abs(Math.hypot(edge.x,edge.z)-1)<1e-8);});
+test('analog movement follows camera and preserves variable speed',()=>{const p=make();p.yaw=0;const q=make();q.yaw=0;for(let i=0;i<60;i++){p.update(1/120,new Set(),{x:0,z:-.4});q.update(1/120,new Set(),{x:0,z:-1});}assert.ok(Math.abs((6-p.pos.z)/(6-q.pos.z)-.4)<.01);p.yaw=Math.PI/2;const x=p.pos.x;p.update(.02,new Set(),{x:0,z:-1});assert.ok(p.pos.x<x);});
+test('releasing during a touch cube step finishes the step and detaches',()=>{const p=make();p.pos.set(-2,0,3.2);p.yaw=0;p.update(.02,new Set());p.grab();p.update(.02,new Set(),{x:0,z:-1});assert.ok(p.drag);p.grab();for(let i=0;i<40;i++)p.update(.01,new Set());assert.equal(p.held,null);assert.equal(p.drag,null);assert.ok(Math.abs(p.pos.z-1.2)<.001);assert.equal(p.model.cubes[0].z,0);});
+test('idle touch input stops movement without changing the cube',()=>{const p=make();p.yaw=0;p.update(.02,new Set(),{x:1,z:0});const x=p.pos.x;for(let i=0;i<60;i++)p.update(1/60,new Set(),{x:0,z:0});assert.equal(p.pos.x,x);assert.equal(p.model.history.length,0);});
